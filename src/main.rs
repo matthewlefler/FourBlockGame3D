@@ -52,7 +52,7 @@ fn setup(
             commands.spawn( (
                 Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
                 MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-                Transform::from_xyz(position.x.into(), position.y.into(), z_position),
+                Transform::from_xyz(position.x as f32, position.y as f32, z_position),
             ));
         }
         z_position -= 1.5;

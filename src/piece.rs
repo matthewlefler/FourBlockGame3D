@@ -3,10 +3,15 @@ use serde::{Deserialize, Serialize};
 
 const PIECE_FILE: &str = "./src/data/pieces.json";
 
+#[derive(Resource)]
+pub struct PieceTemplates(pub Vec<Piece>);
+
 #[derive(Serialize, Deserialize, Component, Debug)]
 pub struct Piece {
     pub name: String,
-    pub blocks: Vec<Position>
+    pub blocks: Vec<Position>,
+    pub center_point: Position,
+    pub kick_offsets: KickOffsets,
 }
 
 
@@ -18,12 +23,24 @@ impl std::fmt::Display for Piece {
 
 #[derive(Serialize, Deserialize, Component, Debug)]
 pub struct Position {
-    pub x: i16,
-    pub y: i16
+    pub x: i32,
+    pub y: i32
 }
 
-#[derive(Resource)]
-pub struct PieceTemplates(pub Vec<Piece>);
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RotationKicks {
+    pub clockwise: Vec<Position>,
+    pub counter_clockwise: Vec<Position>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KickOffsets {
+    pub up: RotationKicks,
+    pub right: RotationKicks,
+    pub down: RotationKicks,
+    pub left: RotationKicks,
+}
 
 pub struct PiecePlugin;
 
@@ -34,3 +51,4 @@ impl Plugin for PiecePlugin {
         app.insert_resource(PieceTemplates(piece_templates));
     }
 }
+

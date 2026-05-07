@@ -1,4 +1,4 @@
-use bevy::{prelude::*, text::LineHeight};
+use bevy::prelude::*;
 
 #[derive(Component, Debug)]
 pub struct Board {
