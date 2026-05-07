@@ -1,3 +1,5 @@
+use std::f32::consts::{FRAC_2_PI, PI};
+
 use bevy::prelude::*;
 
 mod piece;
@@ -43,19 +45,48 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform::from_xyz(8.0, 10.0, -8.0),
     ));
 
-    let mut z_position: f32 = 0.0;
+    let mut z_offset: f32 = 0.0;
     for piece in piece_templates.0.iter() {
-        for position in &piece.blocks {
-            commands.spawn( (
-                Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-                MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-                Transform::from_xyz(position.x as f32, position.y as f32, z_position),
-            ));
+
+        let mut x_offset: f32 = 0.0;
+        for rotation in 0..4 {
+            let angle = PI * 0.5 * rotation as f32;
+
+            let rot = Quat::from_rotation_z(angle);
+
+            for position in &piece.blocks {
+
+                // local position relative to center
+                let local = Vec3::new(
+                    position.x as f32 - piece.center_point.x as f32,
+                    position.y as f32 - piece.center_point.y as f32,
+                    0.0,
+                );
+
+                // rotate the position
+                let rotated = rot * local;
+
+                // move back from center
+                let final_pos = rotated
+                    + Vec3::new(
+                        piece.center_point.x as f32 + x_offset,
+                        piece.center_point.y as f32,
+                        z_offset,
+                    );
+
+                commands.spawn((
+                    Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+                    MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+                    Transform::from_translation(final_pos),
+                ));
+            }
+
+            x_offset += 5.0;
         }
-        z_position -= 1.5;
+        z_offset -= 2.0;
     }
 }
 
@@ -64,8 +95,9 @@ fn orbit_camera(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Camera3d>>,
 ) {
-    let radius = 20.0;
-    let height = 10.0;
+    const OFFSET: Vec3 = Vec3::new(8.0, 0.0, -8.0);
+    const RADIUS: f32 = 40.0;
+    let height = 20.0;
     let speed = std::f32::consts::PI / 8.0; // 22.5 degrees per second
 
     for mut transform in &mut query {
@@ -73,10 +105,10 @@ fn orbit_camera(
         let angle = time.elapsed_secs() * speed;
 
         // x and z position along a circle
-        let x = radius * angle.cos();
-        let z = radius * angle.sin();
+        let x = RADIUS * angle.cos();
+        let z = RADIUS * angle.sin();
 
-        transform.translation = Vec3::new(x, height, z);
-        transform.look_at(Vec3::ZERO, Vec3::Y); // always look at center
+        transform.translation = Vec3::new(x, height, z) + OFFSET;
+        transform.look_at(Vec3::ZERO + OFFSET, Vec3::Y); // always look at center
     }
 }
