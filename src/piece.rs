@@ -14,14 +14,44 @@ pub struct Piece {
     pub kick_offsets: KickOffsets,
 }
 
-
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {:?}", self.name, self.blocks)
     }
 }
 
-#[derive(Serialize, Deserialize, Component, Debug)]
+enum Rotation {
+    Clockwise,
+    CounterClockwise
+}
+
+trait Rotate {
+    fn rotate(&mut self, dir: Rotation);
+}
+
+impl Rotate for Piece {
+    fn rotate(&mut self, dir: Rotation) {
+        for block in &mut self.blocks {
+            let mut x = block.x;
+            let mut y = block.y;
+            x -= self.center_point.x;
+            y -= self.center_point.y;
+            
+            match dir {
+                Rotation::Clockwise => {
+                    block.x = y + self.center_point.x;
+                    block.y = -x + self.center_point.y;
+                }
+                Rotation::CounterClockwise => {
+                    block.x = -y + self.center_point.x;
+                    block.y = x + self.center_point.y;
+                }
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Position {
     pub x: i32,
     pub y: i32

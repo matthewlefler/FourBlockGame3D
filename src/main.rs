@@ -1,11 +1,16 @@
-use std::f32::consts::{FRAC_2_PI, PI};
+use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    input::mouse::*,
+};
 
 mod piece;
 use piece::*;
 
 mod board;
+
+mod fps_camera;
 
 fn main() {
     App::new()
@@ -20,8 +25,13 @@ fn main() {
             }),
         )
         .add_plugins(PiecePlugin)
-        .add_systems(Startup, setup)
-        .add_systems(Update, orbit_camera)
+        .add_systems(Startup, (
+            setup,
+            fps_camera::spawn_player_camera
+        ))
+        .add_systems(Update, (
+            fps_camera::move_player
+        ))
         .run();
 }
 
@@ -31,14 +41,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     piece_templates: Res<PieceTemplates>,
 ) {
-    // Camera
-    commands.spawn((
-        Camera3d::default(),
-        Msaa::Sample4,
-        Transform::from_xyz(-7.0, 20.0, 4.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
     // Light
     commands.spawn((
         PointLight {
@@ -78,37 +80,28 @@ fn setup(
                     );
 
                 commands.spawn((
-                    Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+                    Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
                     MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
                     Transform::from_translation(final_pos),
                 ));
+
             }
 
-            x_offset += 5.0;
+            // center point
+            let mut material = StandardMaterial::from_color(Color::srgb_u8(255, 255, 255));
+            material.unlit = true;
+            commands.spawn((
+                Mesh3d(meshes.add(Segment3d::new(Vec3::new(0.0,0.0,-1.3), Vec3::new(0.0,0.0,1.3)))),
+                MeshMaterial3d(materials.add(material)),
+                Transform::from_translation(Vec3::new(
+                    piece.center_point.x as f32 + x_offset,
+                    piece.center_point.y as f32,
+                    z_offset,
+                )),
+            ));
+
+            x_offset += 10.0;
         }
-        z_offset -= 2.0;
-    }
-}
-
-// Orbit system
-fn orbit_camera(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<Camera3d>>,
-) {
-    const OFFSET: Vec3 = Vec3::new(8.0, 0.0, -8.0);
-    const RADIUS: f32 = 40.0;
-    let height = 20.0;
-    let speed = std::f32::consts::PI / 8.0; // 22.5 degrees per second
-
-    for mut transform in &mut query {
-        // angle based on elapsed time
-        let angle = time.elapsed_secs() * speed;
-
-        // x and z position along a circle
-        let x = RADIUS * angle.cos();
-        let z = RADIUS * angle.sin();
-
-        transform.translation = Vec3::new(x, height, z) + OFFSET;
-        transform.look_at(Vec3::ZERO + OFFSET, Vec3::Y); // always look at center
+        z_offset -= 4.0;
     }
 }

@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::piece::Position;
+
 #[derive(Component, Debug)]
 pub struct Board {
     pub width: i32,
@@ -19,5 +21,11 @@ impl Board {
 
 pub fn is_cell_occupied(board: &Board, x: i32, y: i32) -> bool {
     board.state[(x + y * board.width) as usize]
+}
+
+pub fn place_blocks(board: &mut Board, blocks: &Vec<Position>) {
+    for block in blocks {
+        board.state[(block.x + block.y * board.width) as usize] = true;
+    }
 }
 
