@@ -1,6 +1,8 @@
 use bevy::{prelude::*};
 use serde::{Deserialize, Serialize};
 
+use crate::board::{Board, piece_fits};
+
 const PIECE_FILE: &str = "./src/data/pieces.json";
 
 #[derive(Resource)]
@@ -11,7 +13,7 @@ pub struct PieceTemplate {
     pub name: String,
     blocks: Vec<IVec2>,
     pub center_point: IVec2,
-    pub kick_offsets: KickOffsets,
+    kick_offsets: KickOffsets,
 }
 
 #[derive(Component, Clone, Debug)]
@@ -21,6 +23,12 @@ pub struct Piece {
     position: IVec2,
     pub cubes: Vec<Entity>,
     pub facing: Facing,
+}
+
+impl Piece {
+    pub fn move_to(&mut self, pos: IVec2) {
+        self.position = pos
+    }
 }
 
 #[derive(Component)]
@@ -114,17 +122,12 @@ impl Rotate for Piece {
 }
 
 pub trait Translate {
-    fn translate(&mut self, dir: Facing);
+    fn translate(&mut self, dir: IVec2);
 }
 
 impl Translate for Piece {
-    fn translate(&mut self, dir: Facing) {
-        match dir {
-            Facing::Up => self.position.y += 1,
-            Facing::Down => self.position.y -= 1,
-            Facing::Right => self.position.x += 1,
-            Facing::Left => self.position.x -= 1
-        }
+    fn translate(&mut self, dir: IVec2) {
+        self.position += dir;
     }
 }
 
@@ -132,8 +135,40 @@ pub fn rotate_piece(
     transforms: &mut Query<&mut Transform, With<Cube>>,
     piece: &mut Piece,
     dir: Rotation,
+    board: &Board,
 ) {
-    piece.rotate(dir);
+    let mut new_piece = piece.clone();
+
+    new_piece.rotate(dir);
+
+    let kick_offsets = match new_piece.facing {
+        Facing::Up => match dir {
+            Rotation::Clockwise => &new_piece.template.kick_offsets.up.clockwise,
+            Rotation::CounterClockwise => &new_piece.template.kick_offsets.up.counter_clockwise,
+        },
+        Facing::Right => match dir {
+            Rotation::Clockwise => &new_piece.template.kick_offsets.right.clockwise,
+            Rotation::CounterClockwise => &new_piece.template.kick_offsets.right.counter_clockwise,
+        },
+        Facing::Left => match dir {
+            Rotation::Clockwise => &new_piece.template.kick_offsets.left.clockwise,
+            Rotation::CounterClockwise => &new_piece.template.kick_offsets.left.counter_clockwise,
+        },
+        Facing::Down => match dir {
+            Rotation::Clockwise => &new_piece.template.kick_offsets.down.clockwise,
+            Rotation::CounterClockwise => &new_piece.template.kick_offsets.down.counter_clockwise,
+        },
+    };
+
+    for &kick_offset in kick_offsets {
+        let mut kicked_piece = new_piece.clone();
+        kicked_piece.translate(kick_offset);
+
+        if piece_fits(board, &kicked_piece) {
+            *piece = kicked_piece;
+            break;
+        }
+    }
     
     update_piece_mesh(piece, transforms);
 }
@@ -141,9 +176,15 @@ pub fn rotate_piece(
 pub fn translate_piece(
     transforms: &mut Query<&mut Transform, With<Cube>>,
     piece: &mut Piece,
-    dir: Facing,
+    dir: IVec2,
+    board: &Board,
 ) {
-    piece.translate(dir);
+    let mut new_piece = piece.clone();
+    new_piece.translate(dir);
+
+    if piece_fits(board, &new_piece) {
+        *piece = new_piece;
+    }
     
     update_piece_mesh(piece, transforms);
 }
@@ -163,9 +204,6 @@ pub fn update_piece_mesh(
         }
     }
 }
-
-#[derive(Debug, Component)]
-pub struct Active;
 
 #[derive(Debug, Serialize, Clone, Deserialize)]
 struct RotationKicks {
@@ -248,7 +286,7 @@ pub fn spawn_piece(
 /// exists to convert between them
 pub fn get_piece_block_positions(piece: &Piece) -> Vec<IVec2> {
     piece.blocks.iter()
-        .map(|pos| ivec2(pos.x >> 1, pos.y >> 1))
+        .map(|pos| ivec2(piece.position.x + (pos.x >> 1), piece.position.y + (pos.y >> 1)))
         .collect()
 }
 
@@ -256,6 +294,6 @@ pub fn get_piece_block_positions(piece: &Piece) -> Vec<IVec2> {
 /// exists to convert between them
 pub fn get_piece_template_block_positions(piece: &PieceTemplate) -> Vec<IVec2> {
     piece.blocks.iter()
-        .map(|pos| ivec2(pos.x >> 1, pos.y >> 1))
+        .map(|pos| ivec2( pos.x >> 1, pos.y >> 1))
         .collect()
 }

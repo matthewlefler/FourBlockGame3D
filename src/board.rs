@@ -122,7 +122,7 @@ pub fn setup_board_queue(
 
 pub fn board_new_piece_system(
     mut boards: Query<&mut Board>,
-    pieces: Query<&Piece>,
+    mut pieces: Query<&mut Piece>,
     piece_templates: Res<PieceTemplates>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -131,12 +131,12 @@ pub fn board_new_piece_system(
     for mut board in boards.iter_mut() {
         let piece_entity = board.piece_queue.pop_front().unwrap();
 
-        let piece = pieces.get(piece_entity).unwrap();
+        let mut piece = pieces.get_mut(piece_entity).unwrap();
 
         let piece_placed = place_piece_in_board(
             &mut commands,
             &mut board,
-            piece,
+            &mut piece,
             piece_entity,
         );
 
@@ -169,6 +169,19 @@ fn update_board_queue(board: &Board, commands: &mut Commands) {
     }
 }
 
+pub fn piece_fits(
+    board: &Board,
+    piece: &Piece,
+) -> bool {
+    for block in get_piece_block_positions(piece) {
+        if cell_occupied(board, block.x, block.y) {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub fn cell_occupied(board: &Board, x: i32, y: i32) -> bool {
     if x < 0 || x >= board.width || y < 0 || y >= board.height {
         return true;
@@ -186,7 +199,7 @@ pub fn place_blocks(board: &mut Board, blocks: &Vec<IVec2>) {
 pub fn place_piece_in_board(
     commands: &mut Commands,
     board: &mut Board,
-    piece: &Piece,
+    piece: &mut Piece,
     piece_entity: Entity,
 ) -> bool {
     for pos in get_piece_block_positions(piece) {
@@ -197,12 +210,14 @@ pub fn place_piece_in_board(
         }
     }
     // move piece to correct spot
+    piece.move_to(board.piece_spawn_point);
     commands.entity(piece_entity).insert(Transform::from_xyz(board.piece_spawn_point.x as f32, board.piece_spawn_point.y as f32, 0.0));
 
     make_active_piece(board, piece_entity);
 
     true
 }
+
 
 fn make_active_piece(board: &mut Board, piece: Entity) {
     // set piece to be board's active piece (so it can be searched for later)
@@ -230,6 +245,7 @@ pub fn move_and_rotate_piece_system(
                 &mut transforms,
                 &mut piece,
                 Rotation::Clockwise,
+                board,
             );
         }
         // counter clockwise rotation
@@ -238,6 +254,7 @@ pub fn move_and_rotate_piece_system(
                 &mut transforms,
                 &mut piece,
                 Rotation::CounterClockwise,
+                board,
             );
         }
 
@@ -246,7 +263,8 @@ pub fn move_and_rotate_piece_system(
             translate_piece(
                 &mut transforms,
                 &mut piece,
-                Facing::Left,
+                -IVec2::X,
+                board,
             )
         }
         // translate piece right
@@ -254,7 +272,8 @@ pub fn move_and_rotate_piece_system(
             translate_piece(
                 &mut transforms,
                 &mut piece,
-                Facing::Right,
+                IVec2::X,
+                board,
             )
         }
     }
