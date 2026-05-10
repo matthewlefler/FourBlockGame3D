@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::{input::mouse::AccumulatedMouseMotion, math::VectorSpace, prelude::*};
+use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 
 #[derive(Debug, Component)]
 pub struct Player;
@@ -30,7 +30,7 @@ pub fn spawn_player_camera(
     commands.spawn((
         Player,
         CameraSensitivity::default(),
-        Transform::from_xyz(0.0, 1.0, 0.0),
+        Transform::from_xyz(10.0, 1.0, 0.0),
         Visibility::default(),
         children![
             (
@@ -65,7 +65,7 @@ pub fn move_player(
         let delta_yaw = -delta.x * camera_sensitivity.x;
         let delta_pitch = -delta.y * camera_sensitivity.y;
 
-        let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+        let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
 
         // If the pitch was ±¹⁄₂ π, the camera would look straight up or down.
@@ -77,7 +77,7 @@ pub fn move_player(
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
 
-        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
     }
 
     let mut movement = Vec3::ZERO;
