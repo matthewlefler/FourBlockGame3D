@@ -29,10 +29,11 @@ fn main() {
             setup,
             fps_camera::spawn_player_camera,
             board::setup,
-            board::add_piece_system
+            board::board_new_piece_system
         ).chain())
         .add_systems(Update, (
             fps_camera::move_player,
+            board::move_and_rotate_piece_system,
         ))
         .run();
 }

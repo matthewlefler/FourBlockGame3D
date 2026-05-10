@@ -1,8 +1,8 @@
-use std::{cmp, collections::VecDeque, ops::Deref};
+use std::{collections::VecDeque};
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 
-use crate::{board, piece::*};
+use crate::{piece::*};
 
 #[derive(Component, Debug)]
 pub struct Board {
@@ -13,6 +13,7 @@ pub struct Board {
     piece_queue_len: usize,
     piece_queue_position: Vec3,
     piece_spawn_point: IVec2,
+    active_piece: Option<Entity>,
 }
 
 impl Board {
@@ -25,6 +26,7 @@ impl Board {
             piece_queue_len,
             piece_queue_position,
             piece_spawn_point,
+            active_piece: Option::None,
         }
     }
 }
@@ -39,6 +41,7 @@ impl Default for Board {
             piece_queue_len: 5, 
             piece_queue_position: Vec3 { x: 14.0, y: 30.0, z: 0.0 },
             piece_spawn_point: IVec2 { x: 5, y: 23 },
+            active_piece: Option::None,
         }
     }
 }
@@ -75,7 +78,7 @@ pub fn setup_board(
         ..Default::default()
     };
 
-    let z_vec_offset = Vec3::Z * -2.0;
+    let z_vec_offset = -Vec3::Z;
 
     let mesh = Mesh::new(
     PrimitiveTopology::LineList, // Or LineStrip
@@ -117,7 +120,7 @@ pub fn setup_board_queue(
     update_board_queue(&board, commands);
 }
 
-pub fn add_piece_system(
+pub fn board_new_piece_system(
     mut boards: Query<&mut Board>,
     pieces: Query<&Piece>,
     piece_templates: Res<PieceTemplates>,
@@ -131,14 +134,14 @@ pub fn add_piece_system(
         let piece = pieces.get(piece_entity).unwrap();
 
         let piece_placed = place_piece_in_board(
+            &mut commands,
             &mut board,
             piece,
             piece_entity,
-            &mut commands,
         );
 
         if !piece_placed {
-            // game over
+            println!("unable to place piecce");
         }
 
         // add more pieces if queue is running out
@@ -166,7 +169,7 @@ fn update_board_queue(board: &Board, commands: &mut Commands) {
     }
 }
 
-pub fn is_cell_occupied(board: &Board, x: i32, y: i32) -> bool {
+pub fn cell_occupied(board: &Board, x: i32, y: i32) -> bool {
     if x < 0 || x >= board.width || y < 0 || y >= board.height {
         return true;
     }
@@ -176,25 +179,83 @@ pub fn is_cell_occupied(board: &Board, x: i32, y: i32) -> bool {
 
 pub fn place_blocks(board: &mut Board, blocks: &Vec<IVec2>) {
     for block in blocks {
-        board.state[(block.x + block.y * board.width) as usize] = true;
+        board.state[((block.x >> 1) + (block.y >> 1) * board.width) as usize] = true;
     }
 }
 
 pub fn place_piece_in_board(
-    board: &Board,
+    commands: &mut Commands,
+    board: &mut Board,
     piece: &Piece,
     piece_entity: Entity,
-    commands: &mut Commands,
 ) -> bool {
-    for pos in &piece.blocks {
-        let board_pos = *pos + board.piece_spawn_point;
+    for pos in get_piece_block_positions(piece) {
+        let board_pos = pos + board.piece_spawn_point;
 
-        if is_cell_occupied(board, board_pos.x, board_pos.y) {
+        if cell_occupied(board, board_pos.x, board_pos.y) {
             return false;
         }
     }
+    // move piece to correct spot
+    commands.entity(piece_entity).insert(Transform::from_xyz(board.piece_spawn_point.x as f32, board.piece_spawn_point.y as f32, 0.0));
 
-    make_active(piece_entity, commands);
+    make_active_piece(board, piece_entity);
 
     true
+}
+
+fn make_active_piece(board: &mut Board, piece: Entity) {
+    // set piece to be board's active piece (so it can be searched for later)
+    board.active_piece = Some(piece);
+}
+
+pub fn move_and_rotate_piece_system(
+    boards: Query<&Board>,
+    mut pieces: Query<&mut Piece>,
+    mut transforms: Query<&mut Transform, With<Cube>>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    for board in boards {
+        if board.active_piece.is_none() { 
+            continue; 
+        }
+
+        let piece_entity = board.active_piece.unwrap();
+
+        let mut piece = pieces.get_mut(piece_entity).unwrap();
+
+        // clockwise rotation
+        if input.just_pressed(KeyCode::KeyI) {
+            rotate_piece(
+                &mut transforms,
+                &mut piece,
+                Rotation::Clockwise,
+            );
+        }
+        // counter clockwise rotation
+        if input.just_pressed(KeyCode::KeyK) {
+            rotate_piece(
+                &mut transforms,
+                &mut piece,
+                Rotation::CounterClockwise,
+            );
+        }
+
+        // translate piece left
+        if input.just_pressed(KeyCode::KeyJ) {
+            translate_piece(
+                &mut transforms,
+                &mut piece,
+                Facing::Left,
+            )
+        }
+        // translate piece right
+        if input.just_pressed(KeyCode::KeyL) {
+            translate_piece(
+                &mut transforms,
+                &mut piece,
+                Facing::Right,
+            )
+        }
+    }
 }

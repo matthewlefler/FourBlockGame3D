@@ -10,36 +10,57 @@ pub struct PieceTemplates(pub Vec<PieceTemplate>);
 pub struct PieceTemplate {
     pub name: String,
     blocks: Vec<IVec2>,
-    center_point: IVec2,
-    kick_offsets: KickOffsets,
+    pub center_point: IVec2,
+    pub kick_offsets: KickOffsets,
 }
 
 #[derive(Component, Clone, Debug)]
 pub struct Piece {
-    template: PieceTemplate,
-    pub blocks: Vec<IVec2>,
-    cubes: Vec<Entity>,
-    facing: Facing,
+    pub template: PieceTemplate,
+    blocks: Vec<IVec2>,
+    position: IVec2,
+    pub cubes: Vec<Entity>,
+    pub facing: Facing,
 }
 
 #[derive(Component)]
 pub struct Cube;
 
 #[derive(Clone, Copy, Debug)]
-enum Rotation {
+pub enum Rotation {
     Clockwise,
     CounterClockwise
 }
 
 #[derive(Clone, Debug)]
-enum Facing {
+pub enum Facing {
     Up,
     Right,
     Down,
     Left,
 }
 
-trait Rotate {
+impl Facing {
+    fn next(&self) -> Self {
+        match self {
+            Facing::Up =>    Facing::Right,
+            Facing::Right => Facing::Down,
+            Facing::Down =>  Facing::Left,
+            Facing::Left =>  Facing::Up,
+        }
+    }
+
+    fn previous(&self) -> Self {
+        match self {
+            Facing::Up =>    Facing::Left,
+            Facing::Right => Facing::Up,
+            Facing::Down =>  Facing::Right,
+            Facing::Left =>  Facing::Down,
+        }
+    }
+}
+
+pub trait Rotate {
     fn rotate(&mut self, dir: Rotation);
 }
 
@@ -63,21 +84,82 @@ impl Rotate for PieceTemplate {
     }
 }
 
-fn rotate_piece_system(
-    mut pieces: Query<&mut Piece, With<Active>>,
-    mut transforms: Query<&mut Transform, With<Cube>>,
-) {
-    for mut piece in &mut pieces {
-        piece.template.rotate(Rotation::Clockwise);
-
-        for (i, cube_entity) in piece.cubes.iter().enumerate() {
-            if let Ok(mut transform) = transforms.get_mut(*cube_entity) {
-                transform.translation.x =
-                    piece.template.blocks[i].x as f32;
-
-                transform.translation.y =
-                    piece.template.blocks[i].y as f32;
+impl Rotate for Piece {
+    fn rotate(&mut self, dir: Rotation) {
+        match dir {
+            Rotation::Clockwise => {
+                self.facing = self.facing.next();
             }
+            Rotation::CounterClockwise => {
+                self.facing = self.facing.previous();
+            }
+        }
+
+        for block in &mut self.blocks {
+            let x = block.x - self.template.center_point.x;
+            let y = block.y - self.template.center_point.y;
+
+            match dir {
+                Rotation::Clockwise => {
+                    block.x = self.template.center_point.x + y;
+                    block.y = self.template.center_point.y - x;
+                }
+                Rotation::CounterClockwise => {
+                    block.x = self.template.center_point.x - y;
+                    block.y = self.template.center_point.y + x;
+                }
+            }
+        }
+    }
+}
+
+pub trait Translate {
+    fn translate(&mut self, dir: Facing);
+}
+
+impl Translate for Piece {
+    fn translate(&mut self, dir: Facing) {
+        match dir {
+            Facing::Up => self.position.y += 1,
+            Facing::Down => self.position.y -= 1,
+            Facing::Right => self.position.x += 1,
+            Facing::Left => self.position.x -= 1
+        }
+    }
+}
+
+pub fn rotate_piece(
+    transforms: &mut Query<&mut Transform, With<Cube>>,
+    piece: &mut Piece,
+    dir: Rotation,
+) {
+    piece.rotate(dir);
+    
+    update_piece_mesh(piece, transforms);
+}
+
+pub fn translate_piece(
+    transforms: &mut Query<&mut Transform, With<Cube>>,
+    piece: &mut Piece,
+    dir: Facing,
+) {
+    piece.translate(dir);
+    
+    update_piece_mesh(piece, transforms);
+}
+
+pub fn update_piece_mesh(
+    piece: &mut Piece,
+    transforms: &mut Query<&mut Transform, With<Cube>>,
+) {
+    let blocks = get_piece_block_positions(&piece);
+    for (i, cube_entity) in piece.cubes.iter().enumerate() {
+        if let Ok(mut transform) = transforms.get_mut(*cube_entity) {
+            transform.translation.x =
+                (blocks[i].x + piece.position.x) as f32;
+
+            transform.translation.y =
+                (blocks[i].y + piece.position.y) as f32;
         }
     }
 }
@@ -104,7 +186,11 @@ pub struct PiecePlugin;
 impl Plugin for PiecePlugin {
     fn build(&self, app: &mut App) {
         let piece_templates: Vec<PieceTemplate> =
-            serde_json::from_reader(std::fs::File::open(PIECE_FILE).expect("unable to open PIECE_FILE")).expect("unable to parse PIECE_FILE");
+            serde_json::from_reader(
+            std::fs::File::open(PIECE_FILE)
+                    .expect("unable to open PIECE_FILE")
+            ).expect("unable to parse PIECE_FILE");
+
         app.insert_resource(PieceTemplates(piece_templates));
     }
 }
@@ -148,6 +234,7 @@ pub fn spawn_piece(
             template,
             blocks,
             cubes: cube_entities,
+            position: IVec2::default(),
             facing: Facing::Up,
         },
         Transform::default(),
@@ -157,6 +244,18 @@ pub fn spawn_piece(
     piece_entity
 }
 
-pub fn make_active(piece: Entity, commands: &mut Commands) {
-    commands.entity(piece).insert_if_new(Active );
+/// because the pieces' blocks use a doubled coord system this function
+/// exists to convert between them
+pub fn get_piece_block_positions(piece: &Piece) -> Vec<IVec2> {
+    piece.blocks.iter()
+        .map(|pos| ivec2(pos.x >> 1, pos.y >> 1))
+        .collect()
+}
+
+/// because the pieces' blocks use a doubled coord system this function
+/// exists to convert between them
+pub fn get_piece_template_block_positions(piece: &PieceTemplate) -> Vec<IVec2> {
+    piece.blocks.iter()
+        .map(|pos| ivec2(pos.x >> 1, pos.y >> 1))
+        .collect()
 }
