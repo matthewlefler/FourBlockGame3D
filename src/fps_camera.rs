@@ -30,7 +30,7 @@ pub fn spawn_player_camera(
     commands.spawn((
         Player,
         CameraSensitivity::default(),
-        Transform::from_xyz(10.0, 1.0, 0.0),
+        Transform::from_xyz(5.0, 30.0, 30.0),
         Visibility::default(),
         children![
             (

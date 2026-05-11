@@ -1,14 +1,12 @@
-
 use bevy::prelude::*;
 
 mod piece;
+mod board;
+mod debug;
+mod fps_camera;
+
 use piece::*;
 
-use crate::board::Board;
-
-mod board;
-
-mod fps_camera;
 
 fn main() {
     App::new()
@@ -16,7 +14,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "FourBlockGame3D".into(),
-                    resolution: (600, 600).into(),
+                    // resolution: (600, 600).into(),
                     ..default()
                 }),
                 ..default()
@@ -26,7 +24,7 @@ fn main() {
             PiecePlugin,
         ))
         .add_systems(Startup, (
-            setup,
+            debug_setup,
             fps_camera::spawn_player_camera,
             board::setup,
             board::board_new_piece_system
@@ -34,12 +32,13 @@ fn main() {
         .add_systems(Update, (
             fps_camera::move_player,
             board::move_and_rotate_piece_system,
+            debug::debug_pos_text_system,
         ))
         .run();
 }
 
-fn setup(
-    mut commands: Commands
+fn debug_setup(
+    mut commands: Commands,
 ) {
     // Light
     commands.spawn((
@@ -47,6 +46,6 @@ fn setup(
             shadows_enabled: false,
             ..default()
         },
-        Transform::from_xyz(8.0, 10.0, -8.0),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 }

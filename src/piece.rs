@@ -2,8 +2,9 @@ use bevy::{prelude::*};
 use serde::{Deserialize, Serialize};
 
 use crate::board::{Board, piece_fits};
+use crate::debug::{DebugPosText, spawn_debug_text};
 
-const PIECE_FILE: &str = "./src/data/pieces.json";
+const PIECE_FILE: &str = "data/pieces.json";
 
 #[derive(Resource)]
 pub struct PieceTemplates(pub Vec<PieceTemplate>);
@@ -180,7 +181,7 @@ pub fn translate_piece(
     board: &Board,
 ) {
     let mut new_piece = piece.clone();
-    new_piece.translate(dir);
+    new_piece.translate(2 * dir);
 
     if piece_fits(board, &new_piece) {
         *piece = new_piece;
@@ -237,6 +238,7 @@ pub fn spawn_piece(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    asset_server: &Res<AssetServer>,
     template: PieceTemplate,
 ) -> Entity {
     let blocks = template.blocks.clone();
@@ -251,16 +253,21 @@ pub fn spawn_piece(
                 Cube,
                 Mesh3d(meshes.add(Mesh::from(Cuboid::from_length(1.0)))),
                 MeshMaterial3d(materials.add(
-                    StandardMaterial::from_color(Color::srgb(1.0, 0.5, 0.0)),
+                    StandardMaterial::from_color(Color::srgb(rand::random(), rand::random(), rand::random())),
                 )),
                 Transform::from_xyz(
-                    block.x as f32 / 2.0,
-                    block.y as f32 / 2.0,
+                    (block.x >> 1) as f32,
+                    (block.y >> 1) as f32,
                     0.0,
                 ),
                 GlobalTransform::default(),
             ))
             .id();
+        spawn_debug_text(
+            cube_entity, 
+            asset_server, 
+            commands,
+        );
 
         commands.entity(piece_entity).add_child(cube_entity);
 
@@ -286,7 +293,7 @@ pub fn spawn_piece(
 /// exists to convert between them
 pub fn get_piece_block_positions(piece: &Piece) -> Vec<IVec2> {
     piece.blocks.iter()
-        .map(|pos| ivec2(piece.position.x + (pos.x >> 1), piece.position.y + (pos.y >> 1)))
+        .map(|pos| ivec2((piece.position.x + pos.x) >> 1, (piece.position.y + pos.y) >> 1))
         .collect()
 }
 

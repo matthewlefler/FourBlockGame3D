@@ -50,21 +50,23 @@ pub fn setup(
     piece_templates: Res<PieceTemplates>,
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>
+    materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let board = Board::default();
 
-    setup_board(board, piece_templates, commands, meshes, materials);
+    setup_board(board, piece_templates, commands, asset_server, meshes, materials);
 }
 
 pub fn setup_board(
     mut board: Board,
     piece_templates: Res<PieceTemplates>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>
 ) {
-    setup_board_queue(&mut board, piece_templates, &mut commands, &mut meshes, &mut materials);
+    setup_board_queue(&mut board, piece_templates, &mut commands, &mut meshes, asset_server, &mut materials);
 
     // mesh
     let bottom_left = Vec3::ZERO;
@@ -103,6 +105,37 @@ pub fn setup_board(
         Mesh3d(meshes.add(mesh)),
         MeshMaterial3d(materials.add(mat)),
     ));
+    // temp debug axii 
+    {
+        let pos = Vec3::new(-2.0, 0.0, -1.0);
+        commands.spawn((
+            Mesh3d(meshes.add(Segment3d::new(Vec3::ZERO, Vec3::X))),
+            Transform::from_translation(pos),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color : Color::srgb(1.0, 0.0, 0.0),
+                unlit : true,
+                ..Default::default()
+            })),
+        ));
+        commands.spawn((
+            Mesh3d(meshes.add(Segment3d::new(Vec3::ZERO, Vec3::Y))),
+            Transform::from_translation(pos),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color : Color::srgb(0.0, 1.0, 0.0),
+                unlit : true,
+                ..Default::default()
+            })),
+        ));
+        commands.spawn((
+            Mesh3d(meshes.add(Segment3d::new(Vec3::ZERO, Vec3::Z))),
+            Transform::from_translation(pos),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color : Color::srgb(0.0, 0.0, 1.0),
+                unlit : true,
+                ..Default::default()
+            })),
+        ));
+    }
 }
 
 pub fn setup_board_queue(
@@ -110,11 +143,12 @@ pub fn setup_board_queue(
     piece_templates: Res<PieceTemplates>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
+    asset_server: Res<AssetServer>,
     materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
     // add pieces to piece queue
     for piece in piece_templates.0.iter().chain(piece_templates.0.iter()) {
-        let piece_entity = spawn_piece(commands, meshes, materials, piece.clone());
+        let piece_entity = spawn_piece(commands, meshes, materials, &asset_server, piece.clone());
         board.piece_queue.push_back(piece_entity);
     }
     update_board_queue(&board, commands);
@@ -124,6 +158,7 @@ pub fn board_new_piece_system(
     mut boards: Query<&mut Board>,
     mut pieces: Query<&mut Piece>,
     piece_templates: Res<PieceTemplates>,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
@@ -147,7 +182,7 @@ pub fn board_new_piece_system(
         // add more pieces if queue is running out
         if board.piece_queue.len() < board.piece_queue_len * 2  {
             for piece in piece_templates.0.iter() {
-                let piece_entity = spawn_piece(&mut commands, &mut meshes, &mut materials, piece.clone());
+                let piece_entity = spawn_piece(&mut commands, &mut meshes, &mut materials, &asset_server, piece.clone());
                 board.piece_queue.push_back(piece_entity);
             }
             update_board_queue(&board, &mut commands);
@@ -202,15 +237,14 @@ pub fn place_piece_in_board(
     piece: &mut Piece,
     piece_entity: Entity,
 ) -> bool {
-    for pos in get_piece_block_positions(piece) {
-        let board_pos = pos + board.piece_spawn_point;
+    piece.move_to(board.piece_spawn_point);
 
-        if cell_occupied(board, board_pos.x, board_pos.y) {
+    for pos in get_piece_block_positions(piece) {
+        if cell_occupied(board, pos.x, pos.y) {
             return false;
         }
     }
     // move piece to correct spot
-    piece.move_to(board.piece_spawn_point);
     commands.entity(piece_entity).insert(Transform::from_xyz(board.piece_spawn_point.x as f32, board.piece_spawn_point.y as f32, 0.0));
 
     make_active_piece(board, piece_entity);
