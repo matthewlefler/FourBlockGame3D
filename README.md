@@ -26,6 +26,7 @@ You're welcome to make an *issue* if you think it'll help though.
   - from data_file? 
     - input.json
     - is there even a point tho?
+      - yes there is (custom loading by user etc.)
 - UI
   - from data_file??
     - (this sounds really hard (maybe (as i think about it maybe not)))

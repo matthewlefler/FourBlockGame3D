@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
+use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*, window::{CursorGrabMode, CursorOptions}};
 
 #[derive(Debug, Component)]
 pub struct Player;
@@ -49,8 +49,13 @@ pub fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     player: Single<(&mut Transform, &CameraSensitivity), With<Player>>,
     input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>
+    time: Res<Time>,
+    cursor_options: Single<&CursorOptions>,
 ) {
+    if cursor_options.grab_mode != CursorGrabMode::Locked {
+        return;
+    }
+
     let (mut transform, camera_sensitivity) = player.into_inner();
 
     let delta = accumulated_mouse_motion.delta;
@@ -105,3 +110,20 @@ pub fn move_player(
     transform.translation += movement;
 }
 
+// This system grabs the mouse when the left mouse button is pressed
+// and releases it when the escape key is pressed
+pub fn grab_mouse(
+    mut cursor_options: Single<&mut CursorOptions>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    key: Res<ButtonInput<KeyCode>>,
+) {
+    if mouse.just_pressed(MouseButton::Left) {
+        cursor_options.visible = false;
+        cursor_options.grab_mode = CursorGrabMode::Locked;
+    }
+
+    if key.just_pressed(KeyCode::Escape) {
+        cursor_options.visible = true;
+        cursor_options.grab_mode = CursorGrabMode::None;
+    }
+}

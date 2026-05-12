@@ -190,18 +190,33 @@ pub fn translate_piece(
     update_piece_mesh(piece, transforms);
 }
 
+pub fn move_piece_to(
+    transforms: &mut Query<&mut Transform, With<Cube>>,
+    piece: &mut Piece,
+    pos: IVec2,
+    board: &Board,
+) {
+    let mut new_piece = piece.clone();
+    new_piece.move_to(2 * pos);
+
+    if piece_fits(board, &new_piece) {
+        *piece = new_piece;
+    }
+    
+    update_piece_mesh(piece, transforms);
+}
+
 pub fn update_piece_mesh(
     piece: &mut Piece,
     transforms: &mut Query<&mut Transform, With<Cube>>,
 ) {
     let blocks = get_piece_block_positions(&piece);
+    println!("piece: {} {}", piece.position.x, piece.position.y);
     for (i, cube_entity) in piece.cubes.iter().enumerate() {
+        println!("\tblock: {}, {}", blocks[i].x, blocks[i].y);
         if let Ok(mut transform) = transforms.get_mut(*cube_entity) {
-            transform.translation.x =
-                (blocks[i].x + piece.position.x) as f32;
-
-            transform.translation.y =
-                (blocks[i].y + piece.position.y) as f32;
+            transform.translation.x = blocks[i].x as f32;
+            transform.translation.y = blocks[i].y as f32;
         }
     }
 }

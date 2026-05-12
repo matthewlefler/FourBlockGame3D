@@ -31,7 +31,11 @@ fn main() {
         ).chain())
         .add_systems(Update, (
             fps_camera::move_player,
-            board::move_and_rotate_piece_system,
+            fps_camera::grab_mouse,
+            (
+                board::move_and_rotate_piece_system,
+                board::move_piece_down_system,
+            ).chain(),
             debug::debug_pos_text_system,
         ))
         .run();

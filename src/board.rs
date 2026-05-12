@@ -1,4 +1,4 @@
-use std::{collections::VecDeque};
+use std::{collections::VecDeque, time::Duration};
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 
@@ -9,24 +9,30 @@ pub struct Board {
     width: i32,
     height: i32,
     state: Vec<bool>,
+    state_entities: Vec<Option<Entity>>,
     piece_queue: VecDeque<Entity>,
     piece_queue_len: usize,
     piece_queue_position: Vec3,
     piece_spawn_point: IVec2,
     active_piece: Option<Entity>,
+    active_piece_place_timer: Timer,
+    active_piece_down_movement_timer: Timer,
 }
 
 impl Board {
-    pub fn new(width: i32, height: i32, piece_queue_len: usize, piece_queue_position: Vec3, piece_spawn_point: IVec2) -> Self {
+    pub fn new(width: i32, height: i32, piece_queue_len: usize, piece_queue_position: Vec3, piece_spawn_point: IVec2, active_piece_place_duration: Duration, active_piece_down_movement: Duration) -> Self {
         Self {
             width,
             height,
             state: vec![false; (width * height) as usize],
+            state_entities: vec![Option::None; (width * height) as usize],
             piece_queue: VecDeque::new(),
             piece_queue_len,
             piece_queue_position,
             piece_spawn_point,
             active_piece: Option::None,
+            active_piece_place_timer: Timer::new(active_piece_place_duration, TimerMode::Once),
+            active_piece_down_movement_timer: Timer::new(active_piece_down_movement, TimerMode::Repeating),
         }
     }
 }
@@ -36,12 +42,16 @@ impl Default for Board {
         Self { 
             width: 10, 
             height: 30,
-            state: vec![false; (10 * 30) as usize], 
+            state: vec![false; 10 * 30], 
+            state_entities: vec![Option::None; 10 * 30],
             piece_queue: VecDeque::new(), 
             piece_queue_len: 5, 
             piece_queue_position: Vec3 { x: 14.0, y: 30.0, z: 0.0 },
             piece_spawn_point: IVec2 { x: 5, y: 23 },
             active_piece: Option::None,
+            active_piece_place_timer: Timer::from_seconds(1.5, TimerMode::Once),
+            active_piece_down_movement_timer: Timer::from_seconds(1.5, TimerMode::Repeating),
+
         }
     }
 }
@@ -157,6 +167,7 @@ pub fn setup_board_queue(
 pub fn board_new_piece_system(
     mut boards: Query<&mut Board>,
     mut pieces: Query<&mut Piece>,
+    mut transforms: Query<&mut Transform, With<Cube>>,
     piece_templates: Res<PieceTemplates>,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -170,6 +181,7 @@ pub fn board_new_piece_system(
 
         let piece_placed = place_piece_in_board(
             &mut commands,
+            &mut transforms,
             &mut board,
             &mut piece,
             piece_entity,
@@ -225,14 +237,49 @@ pub fn cell_occupied(board: &Board, x: i32, y: i32) -> bool {
     board.state[(x + y * board.width) as usize]
 }
 
-pub fn place_blocks(board: &mut Board, blocks: &Vec<IVec2>) {
-    for block in blocks {
-        board.state[((block.x >> 1) + (block.y >> 1) * board.width) as usize] = true;
+pub fn place_blocks(
+    board: &mut Board, 
+    piece: &Piece,
+    piece_entity: Entity,
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    for (i, block) in get_piece_block_positions(piece).iter().enumerate() {
+        let index = (block.x + (block.y * board.width)) as usize; 
+        let block_entity = piece.cubes[i];
+
+        let new_board_entity = create_board_block_entity(meshes, materials, commands, block_entity);
+
+        board.state[index] = true;
+        board.state_entities[index] = Some(new_board_entity);
     }
+
+    commands.entity(piece_entity).despawn();
+}
+
+#[derive(Component)]
+struct BoardBlock;
+
+pub fn create_board_block_entity(
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    commands: &mut Commands,
+    previous_block_entity: Entity,
+) -> Entity {
+    commands.spawn((
+        BoardBlock,
+        Mesh3d(meshes.add(Cuboid::from_length(1.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.5, 0.5, 0.5),
+            ..Default::default()
+        }))
+    )).id()
 }
 
 pub fn place_piece_in_board(
     commands: &mut Commands,
+    transforms: &mut Query<&mut Transform, With<Cube>>,
     board: &mut Board,
     piece: &mut Piece,
     piece_entity: Entity,
@@ -245,7 +292,10 @@ pub fn place_piece_in_board(
         }
     }
     // move piece to correct spot
-    commands.entity(piece_entity).insert(Transform::from_xyz(board.piece_spawn_point.x as f32, board.piece_spawn_point.y as f32, 0.0));
+    // TODO: set to board transform
+    commands.entity(piece_entity).insert(Transform::from_xyz(0.5, 0.5, -0.5));
+
+    move_piece_to(transforms, piece, ivec2(board.piece_spawn_point.x, board.piece_spawn_point.y), board);
 
     make_active_piece(board, piece_entity);
 
@@ -309,6 +359,29 @@ pub fn move_and_rotate_piece_system(
                 IVec2::X,
                 board,
             )
+        }
+    }
+}
+
+pub fn move_piece_down_system(
+    boards: Query<&mut Board>,
+    mut pieces: Query<&mut Piece>,
+    mut transforms: Query<&mut Transform, With<Cube>>,
+    time: Res<Time>,
+) {
+    for mut board in boards {
+        if board.active_piece.is_none() { 
+            continue; 
+        }
+        
+        board.active_piece_down_movement_timer.tick(time.delta());
+        
+        if board.active_piece_down_movement_timer.just_finished() {
+            let piece_entity = board.active_piece.unwrap();
+            
+            let mut piece = pieces.get_mut(piece_entity).unwrap();
+            
+            translate_piece(&mut transforms, &mut piece, -IVec2::Y, &board);
         }
     }
 }
