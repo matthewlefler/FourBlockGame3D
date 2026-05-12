@@ -1,7 +1,7 @@
 use bevy::{prelude::*};
 use serde::{Deserialize, Serialize};
 
-use crate::board::{Board, piece_fits};
+use crate::board::{Board, block_fits, piece_fits};
 use crate::debug::{DebugPosText, spawn_debug_text};
 
 const PIECE_FILE: &str = "data/pieces.json";
@@ -174,20 +174,38 @@ pub fn rotate_piece(
     update_piece_mesh(piece, transforms);
 }
 
-pub fn translate_piece(
+pub fn try_translate_piece(
     transforms: &mut Query<&mut Transform, With<Cube>>,
     piece: &mut Piece,
     dir: IVec2,
     board: &Board,
-) {
+) -> bool {
     let mut new_piece = piece.clone();
     new_piece.translate(2 * dir);
 
     if piece_fits(board, &new_piece) {
         *piece = new_piece;
+    } else {
+        return false
     }
     
     update_piece_mesh(piece, transforms);
+    true
+}
+
+
+pub fn can_translate_piece(
+    piece: &Piece,
+    dir: IVec2,
+    board: &Board,
+) -> bool {
+    for block in get_piece_block_positions(piece) {
+        if !block_fits(board, &(block + dir)) {
+            return false;
+        }
+    }
+    
+    true
 }
 
 pub fn move_piece_to(

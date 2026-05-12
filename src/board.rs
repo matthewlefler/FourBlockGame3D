@@ -20,7 +20,7 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new(width: i32, height: i32, piece_queue_len: usize, piece_queue_position: Vec3, piece_spawn_point: IVec2, active_piece_place_duration: Duration, active_piece_down_movement: Duration) -> Self {
+    pub fn new(width: i32, height: i32, piece_queue_len: usize, piece_queue_position: Vec3, piece_spawn_point: IVec2, active_piece_place_duration: Duration, active_piece_down_movement_duration: Duration) -> Self {
         Self {
             width,
             height,
@@ -32,7 +32,7 @@ impl Board {
             piece_spawn_point,
             active_piece: Option::None,
             active_piece_place_timer: Timer::new(active_piece_place_duration, TimerMode::Once),
-            active_piece_down_movement_timer: Timer::new(active_piece_down_movement, TimerMode::Repeating),
+            active_piece_down_movement_timer: Timer::new(active_piece_down_movement_duration, TimerMode::Repeating),
         }
     }
 }
@@ -51,7 +51,6 @@ impl Default for Board {
             active_piece: Option::None,
             active_piece_place_timer: Timer::from_seconds(1.5, TimerMode::Once),
             active_piece_down_movement_timer: Timer::from_seconds(1.5, TimerMode::Repeating),
-
         }
     }
 }
@@ -229,6 +228,17 @@ pub fn piece_fits(
     true
 }
 
+pub fn block_fits(
+    board: &Board,
+    block: &IVec2,
+) -> bool {
+    if cell_occupied(board, block.x, block.y) {
+        return false;
+    }
+
+    true
+}
+
 pub fn cell_occupied(board: &Board, x: i32, y: i32) -> bool {
     if x < 0 || x >= board.width || y < 0 || y >= board.height {
         return true;
@@ -249,12 +259,13 @@ pub fn place_blocks(
         let index = (block.x + (block.y * board.width)) as usize; 
         let block_entity = piece.cubes[i];
 
-        let new_board_entity = create_board_block_entity(meshes, materials, commands, block_entity);
+        let new_board_entity = create_board_block_entity(meshes, materials, commands, block_entity, block);
 
         board.state[index] = true;
         board.state_entities[index] = Some(new_board_entity);
     }
 
+    board.active_piece = Option::None;
     commands.entity(piece_entity).despawn();
 }
 
@@ -266,6 +277,7 @@ pub fn create_board_block_entity(
     materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
     previous_block_entity: Entity,
+    position: &IVec2,
 ) -> Entity {
     commands.spawn((
         BoardBlock,
@@ -273,7 +285,8 @@ pub fn create_board_block_entity(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.5, 0.5, 0.5),
             ..Default::default()
-        }))
+        })),
+        Transform::from_xyz(position.x as f32 + 0.5, position.y as f32 + 0.5, -0.5),
     )).id()
 }
 
@@ -325,7 +338,7 @@ pub fn move_and_rotate_piece_system(
 
         // clockwise rotation
         if input.just_pressed(KeyCode::KeyI) {
-            rotate_piece(
+            _ = rotate_piece(
                 &mut transforms,
                 &mut piece,
                 Rotation::Clockwise,
@@ -334,7 +347,7 @@ pub fn move_and_rotate_piece_system(
         }
         // counter clockwise rotation
         if input.just_pressed(KeyCode::KeyK) {
-            rotate_piece(
+            _ = rotate_piece(
                 &mut transforms,
                 &mut piece,
                 Rotation::CounterClockwise,
@@ -344,7 +357,7 @@ pub fn move_and_rotate_piece_system(
 
         // translate piece left
         if input.just_pressed(KeyCode::KeyJ) {
-            translate_piece(
+            _ = try_translate_piece(
                 &mut transforms,
                 &mut piece,
                 -IVec2::X,
@@ -353,7 +366,7 @@ pub fn move_and_rotate_piece_system(
         }
         // translate piece right
         if input.just_pressed(KeyCode::KeyL) {
-            translate_piece(
+            _ = try_translate_piece(
                 &mut transforms,
                 &mut piece,
                 IVec2::X,
@@ -364,12 +377,12 @@ pub fn move_and_rotate_piece_system(
 }
 
 pub fn move_piece_down_system(
-    boards: Query<&mut Board>,
+    mut boards: Query<&mut Board>,
     mut pieces: Query<&mut Piece>,
     mut transforms: Query<&mut Transform, With<Cube>>,
     time: Res<Time>,
 ) {
-    for mut board in boards {
+    for mut board in boards.iter_mut() {
         if board.active_piece.is_none() { 
             continue; 
         }
@@ -381,7 +394,44 @@ pub fn move_piece_down_system(
             
             let mut piece = pieces.get_mut(piece_entity).unwrap();
             
-            translate_piece(&mut transforms, &mut piece, -IVec2::Y, &board);
+            _ = try_translate_piece(&mut transforms, &mut piece, -IVec2::Y, &board)
+        }
+    }
+}
+
+pub fn place_piece_system(
+    mut boards: Query<&mut Board>,
+    mut pieces: Query<&mut Piece>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    time: Res<Time>,
+) {
+    for mut board in boards.iter_mut() {
+        if board.active_piece.is_none() { 
+            continue; 
+        }
+
+        let piece_entity = board.active_piece.unwrap();
+        
+        let piece = pieces.get_mut(piece_entity).unwrap();
+
+        if can_translate_piece(&piece, -IVec2::Y, &board) {
+            board.active_piece_place_timer.reset();
+            continue;
+        }
+        
+        board.active_piece_place_timer.tick(time.delta());
+
+        if board.active_piece_place_timer.just_finished() {            
+            place_blocks(
+                &mut board, 
+                &piece, 
+                piece_entity, 
+                &mut commands, 
+                &mut meshes, 
+                &mut materials
+            );
         }
     }
 }

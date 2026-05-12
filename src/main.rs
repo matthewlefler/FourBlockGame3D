@@ -35,6 +35,7 @@ fn main() {
             (
                 board::move_and_rotate_piece_system,
                 board::move_piece_down_system,
+                board::place_piece_system,
             ).chain(),
             debug::debug_pos_text_system,
         ))
