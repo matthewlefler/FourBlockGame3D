@@ -13,7 +13,9 @@ Will I fix those things, **no** if it works I'm not touching it.
 You're welcome to make an *issue* if you think it'll help though.   
 
 # TODO
-- row clearing
+- board
+  - settings from json (in gamemodes.json file)
+  - row clearing
 - point system
   - t-spin how detect?
 - highscores

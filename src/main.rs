@@ -24,11 +24,9 @@ fn main() {
             PiecePlugin,
         ))
         .add_systems(Startup, (
-            debug_setup,
             fps_camera::spawn_player_camera,
             board::setup,
-            board::board_new_piece_system
-        ).chain())
+        ))
         .add_systems(Update, (
             fps_camera::move_player,
             fps_camera::grab_mouse,
@@ -36,6 +34,8 @@ fn main() {
                 board::move_and_rotate_piece_system,
                 board::move_piece_down_system,
                 board::place_piece_system,
+                board::new_piece_system,
+                board::clear_lines_system,
             ).chain(),
             debug::debug_pos_text_system,
         ))

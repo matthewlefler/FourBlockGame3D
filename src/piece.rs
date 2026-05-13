@@ -229,9 +229,9 @@ pub fn update_piece_mesh(
     transforms: &mut Query<&mut Transform, With<Cube>>,
 ) {
     let blocks = get_piece_block_positions(&piece);
-    println!("piece: {} {}", piece.position.x, piece.position.y);
+    // println!("piece: {} {}", piece.position.x, piece.position.y);
     for (i, cube_entity) in piece.cubes.iter().enumerate() {
-        println!("\tblock: {}, {}", blocks[i].x, blocks[i].y);
+        // println!("\tblock: {}, {}", blocks[i].x, blocks[i].y);
         if let Ok(mut transform) = transforms.get_mut(*cube_entity) {
             transform.translation.x = blocks[i].x as f32;
             transform.translation.y = blocks[i].y as f32;
@@ -296,11 +296,6 @@ pub fn spawn_piece(
                 GlobalTransform::default(),
             ))
             .id();
-        spawn_debug_text(
-            cube_entity, 
-            asset_server, 
-            commands,
-        );
 
         commands.entity(piece_entity).add_child(cube_entity);
 

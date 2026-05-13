@@ -89,7 +89,7 @@ pub fn move_player(
     if input.pressed(KeyCode::KeyW) {
         movement -= 3.0 * transform.local_z() * time.delta_secs();
     }
-    if input.pressed(KeyCode::KeyS)  {
+    if input.pressed(KeyCode::KeyS) {
         movement += 3.0 * transform.local_z() * time.delta_secs();
     }
     if input.pressed(KeyCode::KeyA) {
@@ -99,11 +99,11 @@ pub fn move_player(
         movement += 3.0 * transform.local_x() * time.delta_secs();
     }
     // down
-    if input.pressed(KeyCode::ShiftLeft) || input.pressed(KeyCode::KeyQ) {
+    if input.pressed(KeyCode::KeyQ) {
         movement -= 3.0 * transform.local_y() * time.delta_secs();
     }
     // up
-    if input.pressed(KeyCode::Space) || input.pressed(KeyCode::KeyE) {
+    if  input.pressed(KeyCode::KeyE) {
         movement += 3.0 * transform.local_y() * time.delta_secs();
     }
 
