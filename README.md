@@ -15,7 +15,7 @@ You're welcome to make an *issue* if you think it'll help though.
 # TODO
 - board
   - settings from json (in gamemodes.json file)
-  - row clearing
+  - ~~row clearing~~
 - point system
   - t-spin how detect?
 - highscores
@@ -44,18 +44,25 @@ You're welcome to make an *issue* if you think it'll help though.
     - looks
       - color pallete
       - block models
+- input handling
+  - from data_file
+    - input.json
+    - default_keybinds.json
+      - more per player
+        - loadable at runtime etc.
+  - whos player 1 v 2 v N
 - animations
   - from data_file
     - animations.json
 - gamemodes
   - from data_file
-    - gamemodes.json
+    - ~~gamemodes.json~~
   - 1v1
   - ...
   - 1v1v1v1v1v1v1v1v1v1v1v1v1 (would need a like 100_000_000 by 1_000 display but lol)
   - 2v2
   - NvN
-  - solo inf (no level)
+  - ~~solo inf (no level)~~
   - solo (with levels) (look up how they work)
 - flatpaking
   - yep ima make a tool for this (hwadiodwoiuhdwaouh why do I do this to myself...)

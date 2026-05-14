@@ -1,0 +1,32 @@
+[
+    {
+        "name":"Standard Singleplayer",
+        "players": [
+            "Player 1"
+        ],
+        "scores": [
+            100,
+            200,
+            400,
+            800
+        ],
+        "levels_enabled": false,
+        "BoardSettings": {
+            "width": 10,
+            "height": 30,
+
+            "piece_spawn_point": [5, 24],
+
+            "piece_queue_len": 5,
+            "piece_queue_position": [14.0, 24.0, 0.0],
+            
+            "piece_storage_enabled": true,
+
+            "initial_time_between_piece_move_down": 1.5,
+            "minimum_time_between_piece_move_down":  1.5,
+            "time_between_piece_move_down_amount_decrease_by_piece": 0.05,
+
+            "active_piece_place_time": 1.5
+        }
+    }
+]

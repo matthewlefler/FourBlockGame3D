@@ -1,12 +1,16 @@
-use bevy::prelude::*;
-
 mod piece;
 mod board;
+mod gamemodes;
+mod input;
+mod constants;
+
 mod debug;
 mod fps_camera;
 
+use bevy::prelude::*;
 use piece::*;
 
+use crate::gamemodes::GamemodesPlugin;
 
 fn main() {
     App::new()
@@ -22,6 +26,7 @@ fn main() {
         )
         .add_plugins((
             PiecePlugin,
+            GamemodesPlugin,
         ))
         .add_systems(Startup, (
             fps_camera::spawn_player_camera,
@@ -34,8 +39,8 @@ fn main() {
                 board::move_and_rotate_piece_system,
                 board::move_piece_down_system,
                 board::place_piece_system,
-                board::new_piece_system,
                 board::clear_lines_system,
+                board::new_piece_system,
             ).chain(),
             debug::debug_pos_text_system,
         ))

@@ -8,31 +8,57 @@ use crate::{piece::*};
 pub struct Board {
     width: i32,
     height: i32,
+
     state: Vec<bool>,
     state_entities: Vec<Option<Entity>>,
+
     piece_queue: VecDeque<Entity>,
     piece_queue_len: usize,
     piece_queue_position: Vec3,
+
     piece_spawn_point: IVec2,
+
     active_piece: Option<Entity>,
     active_piece_place_timer: Timer,
     active_piece_down_movement_timer: Timer,
+
+    piece_storage_enabled: bool,
+    piece_storage: Option<Entity>,
+    piece_storage_position: Vec3,
+
+    score: i64,
 }
 
 impl Board {
-    pub fn new(width: i32, height: i32, piece_queue_len: usize, piece_queue_position: Vec3, piece_spawn_point: IVec2, active_piece_place_duration: Duration, active_piece_down_movement_duration: Duration) -> Self {
+    pub fn new(
+        width: i32, height: i32, 
+        piece_queue_len: usize, piece_queue_position: Vec3, 
+        piece_spawn_point: IVec2, 
+        active_piece_place_duration: Duration, active_piece_down_movement_duration: Duration, 
+        piece_storage_enabled: bool, piece_storage_position: Vec3,
+    ) -> Self {
         Self {
             width,
             height,
+            
             state: vec![false; (width * height) as usize],
             state_entities: vec![Option::None; (width * height) as usize],
+
             piece_queue: VecDeque::new(),
             piece_queue_len,
             piece_queue_position,
+
             piece_spawn_point,
+
             active_piece: Option::None,
             active_piece_place_timer: Timer::new(active_piece_place_duration, TimerMode::Once),
             active_piece_down_movement_timer: Timer::new(active_piece_down_movement_duration, TimerMode::Repeating),
+
+            piece_storage_enabled,
+            piece_storage: Option::None,
+            piece_storage_position,
+
+            score: 0,
         }
     }
 }
@@ -46,20 +72,24 @@ impl Default for Board {
             state_entities: vec![Option::None; 10 * 30],
             piece_queue: VecDeque::new(), 
             piece_queue_len: 5, 
-            piece_queue_position: Vec3 { x: 14.0, y: 30.0, z: 0.0 },
-            piece_spawn_point: IVec2 { x: 5, y: 23 },
+            piece_queue_position: Vec3::new(14.0, 30.0, 0.0),
+            piece_spawn_point: IVec2::new(5, 23),
             active_piece: Option::None,
             active_piece_place_timer: Timer::from_seconds(1.5, TimerMode::Once),
             active_piece_down_movement_timer: Timer::from_seconds(1.5, TimerMode::Repeating),
+            piece_storage_enabled: true,
+            piece_storage: Option::None,
+            piece_storage_position: Vec3::new(-4.0, 23.0, 0.0),
+            score: 0,
         }
     }
 }
 
 impl std::fmt::Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // writeln!(f, "piece_queue_len: {} piece_queue_position: {} piece_queue: {:?}", self.piece_queue_len, self.piece_queue_position, self.piece_queue)?;
-        // writeln!(f, "active_piece: {:?} active_piece_place_timer: {:?} active_piece_down_movement_timer: {:?}", self.active_piece, self.active_piece_place_timer, self.active_piece_down_movement_timer)?;
-        // writeln!(f, "width: {} height: {} piece_spawn_point: {}", self.width, self.height, self.piece_spawn_point)?;
+        writeln!(f, "piece_queue_len: {} piece_queue_position: {} piece_queue: {:?}", self.piece_queue_len, self.piece_queue_position, self.piece_queue)?;
+        writeln!(f, "active_piece: {:?} active_piece_place_timer: {:?} active_piece_down_movement_timer: {:?}", self.active_piece, self.active_piece_place_timer, self.active_piece_down_movement_timer)?;
+        writeln!(f, "width: {} height: {} piece_spawn_point: {}", self.width, self.height, self.piece_spawn_point)?;
         writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
         for y in (0..(self.height>>1)).rev() {
             write!(f, "| ")?;
@@ -73,18 +103,18 @@ impl std::fmt::Display for Board {
         }
         writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
 
-        // writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
-        // for y in (0..(self.height>>1)).rev() {
-        //     write!(f, "| ")?;
-        //     for x in 0..self.width {
-        //         write!(f, "{}", match self.state_entities[(y * self.width + x) as usize] {
-        //             Some(_entity) => "█",
-        //             None => "_",
-        //         })?;
-        //     }
-        //     writeln!(f, " |")?;
-        // }
-        // writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
+        writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
+        for y in (0..(self.height>>1)).rev() {
+            write!(f, "| ")?;
+            for x in 0..self.width {
+                write!(f, "{}", match self.state_entities[(y * self.width + x) as usize] {
+                    Some(_entity) => "█",
+                    None => "_",
+                })?;
+            }
+            writeln!(f, " |")?;
+        }
+        writeln!(f, "{}", "-".repeat((self.width + 4) as usize))?;
 
         Ok(())
     }
@@ -519,6 +549,7 @@ pub fn clear_lines_system(
     mut commands: Commands,
 ) {
     for mut board in &mut boards {
+        let mut num_lines_cleared = 0;
         'row: for y in (0..board.height).rev() {
             for x in 0..board.width {
                 let index = (x + y * board.width) as usize;
@@ -534,7 +565,9 @@ pub fn clear_lines_system(
                 &board,
                 &mut transforms,
             );
+            num_lines_cleared += 1;
         }
+        board.score += num_lines_cleared * 100;
     }
 }
 
@@ -547,7 +580,6 @@ fn update_board_entities(
             let index = (x + y * board.width) as usize;
             if let Some(block_entity) = board.state_entities[index] {
                 if let Ok(mut transform) = transforms.get_mut(block_entity) {
-                    print!("{} {}", x, y);
                     transform.translation = Vec3 { x: x as f32 + 0.5, y: y as f32 + 0.5, z: -0.5 };
                 }
             }

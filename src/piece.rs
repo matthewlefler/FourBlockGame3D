@@ -2,9 +2,8 @@ use bevy::{prelude::*};
 use serde::{Deserialize, Serialize};
 
 use crate::board::{Board, block_fits, piece_fits};
+use crate::constants;
 use crate::debug::{DebugPosText, spawn_debug_text};
-
-const PIECE_FILE: &str = "data/pieces.json";
 
 #[derive(Resource)]
 pub struct PieceTemplates(pub Vec<PieceTemplate>);
@@ -259,7 +258,7 @@ impl Plugin for PiecePlugin {
     fn build(&self, app: &mut App) {
         let piece_templates: Vec<PieceTemplate> =
             serde_json::from_reader(
-            std::fs::File::open(PIECE_FILE)
+            std::fs::File::open(constants::PIECE_FILE)
                     .expect("unable to open PIECE_FILE")
             ).expect("unable to parse PIECE_FILE");
 
