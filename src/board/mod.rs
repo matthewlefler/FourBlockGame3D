@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, time::Duration};
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
+use rand::random;
 
 use crate::{piece::*};
 
@@ -221,10 +222,16 @@ pub fn setup_board_queue(
     materials: &mut ResMut<Assets<StandardMaterial>>
 ) {
     // add pieces to piece queue
-    for piece in piece_templates.0.iter().chain(piece_templates.0.iter()) {
-        let piece_entity = spawn_piece(commands, meshes, materials, &asset_server, piece.clone());
-        board.piece_queue.push_back(piece_entity);
+    while board.piece_queue.len() < board.piece_queue_len {
+        let mut bag = piece_templates.0.clone();
+        for _i in 0..bag.len() {
+            let index = rand::random_range(0..bag.len());
+
+            let piece_entity = spawn_piece(commands, meshes, materials, bag.remove(index));
+            board.piece_queue.push_back(piece_entity);
+        }
     }
+
     update_board_queue(&board, commands);
 }
 
@@ -260,9 +267,12 @@ pub fn new_piece_system(
         }
     
         // add more pieces if queue is running out
-        if board.piece_queue.len() < board.piece_queue_len * 2  {
-            for piece in piece_templates.0.iter() {
-                let piece_entity = spawn_piece(&mut commands, &mut meshes, &mut materials, &asset_server, piece.clone());
+        while board.piece_queue.len() < board.piece_queue_len {
+            let mut bag = piece_templates.0.clone();
+            for _i in 0..bag.len() {
+                let index = rand::random_range(0..bag.len());
+
+                let piece_entity = spawn_piece(&mut commands, &mut meshes, &mut materials, bag.remove(index));
                 board.piece_queue.push_back(piece_entity);
             }
         }

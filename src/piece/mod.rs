@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::board::{Board, block_fits, piece_fits};
 use crate::constants;
-use crate::debug::{DebugPosText, spawn_debug_text};
 
 #[derive(Resource)]
 pub struct PieceTemplates(pub Vec<PieceTemplate>);
@@ -228,9 +227,7 @@ pub fn update_piece_mesh(
     transforms: &mut Query<&mut Transform, With<Cube>>,
 ) {
     let blocks = get_piece_block_positions(&piece);
-    // println!("piece: {} {}", piece.position.x, piece.position.y);
     for (i, cube_entity) in piece.cubes.iter().enumerate() {
-        // println!("\tblock: {}, {}", blocks[i].x, blocks[i].y);
         if let Ok(mut transform) = transforms.get_mut(*cube_entity) {
             transform.translation.x = blocks[i].x as f32;
             transform.translation.y = blocks[i].y as f32;
@@ -270,7 +267,6 @@ pub fn spawn_piece(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    asset_server: &Res<AssetServer>,
     template: PieceTemplate,
 ) -> Entity {
     let blocks = template.blocks.clone();

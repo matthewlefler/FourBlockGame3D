@@ -11,7 +11,7 @@
             800
         ],
         "levels_enabled": false,
-        "BoardSettings": {
+        "board_settings": {
             "width": 10,
             "height": 30,
 
@@ -21,6 +21,7 @@
             "piece_queue_position": [14.0, 24.0, 0.0],
             
             "piece_storage_enabled": true,
+            "piece_storage_position": [-4, 24.0, 0.0],
 
             "initial_time_between_piece_move_down": 1.5,
             "minimum_time_between_piece_move_down":  1.5,
